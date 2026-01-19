@@ -1,0 +1,52 @@
+# Compiled files
+*.class
+*.pyc
+__pycache__/
+*.pyo
+
+# Build directories
+target/
+build/
+dist/
+*.egg-info/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# Python virtual env
+venv/
+.venv/
+ENV/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

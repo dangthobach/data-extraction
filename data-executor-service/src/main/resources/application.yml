@@ -1,0 +1,82 @@
+server:
+  port: 8081
+  shutdown: graceful
+
+spring:
+  application:
+    name: executor-service
+  threads:
+    virtual:
+      enabled: true
+
+  # RabbitMQ Configuration (Consumer)
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:admin}
+    password: ${RABBITMQ_PASSWORD:changeme}
+    listener:
+      simple:
+        concurrency: 5
+        max-concurrency: 20
+        prefetch: 10
+
+  # Kafka Configuration (Producer)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+# MinIO Configuration
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket:
+    raw: ${MINIO_BUCKET_RAW:raw-files}
+    temp: temp-uploads
+
+# Kafka Topics
+kafka:
+  topic:
+    file-ready: etl.file.ready
+
+# SFTP Configuration (Default)
+sftp:
+  default:
+    host: ${SFTP_HOST:localhost}
+    port: ${SFTP_PORT:22}
+    username: ${SFTP_USER:sftpuser}
+    password: ${SFTP_PASSWORD:sftppassword}
+    remote-directory: /upload
+
+# Messaging (RabbitMQ Queues)
+messaging:
+  queue:
+    executor-ingest: q.executor.ingest
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Logging
+logging:
+  level:
+    com.extraction: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.kafka: INFO

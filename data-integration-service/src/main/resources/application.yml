@@ -1,0 +1,172 @@
+server:
+  port: 8080
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 200
+    accept-count: 100
+    connection-timeout: 30s
+
+spring:
+  application:
+    name: integration-service
+  threads:
+    virtual:
+      enabled: true
+
+  # File Upload Limits (Backpressure)
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+      file-size-threshold: 2MB
+
+  # RabbitMQ Configuration with Publisher Confirms
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:admin}
+    password: ${RABBITMQ_PASSWORD:changeme}
+    connection-timeout: 10s
+    template:
+      mandatory: true
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5s
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 10
+          min-idle: 5
+
+  # Cache Configuration
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=10m
+
+  # PostgreSQL Datasource (for API Key storage)
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:extraction_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:changeme}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # Flyway Migration
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# MinIO Configuration
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket:
+    raw: ${MINIO_BUCKET_RAW:raw-files}
+    temp: temp-uploads
+  timeout:
+    connect: 10s
+    read: 60s
+    write: 120s
+
+# Rate Limiting Configuration
+rate-limit:
+  daily-limit: 100
+  key-prefix: "rate_limit:"
+
+# RabbitMQ Exchange/Queue
+messaging:
+  exchange:
+    integration: integration.direct
+  routing-key:
+    ingest-request: ingest.request
+  queue:
+    executor-ingest: q.executor.ingest
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      minioService:
+        base-config: default
+        failure-rate-threshold: 50
+      rabbitService:
+        base-config: default
+        failure-rate-threshold: 50
+      
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 50
+        max-wait-duration: 500ms
+    instances:
+      uploadBulkhead:
+        max-concurrent-calls: 30
+        max-wait-duration: 1s
+      triggerBulkhead:
+        max-concurrent-calls: 50
+        max-wait-duration: 500ms
+        
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 60s
+    instances:
+      uploadTimeLimiter:
+        timeout-duration: 120s
+      triggerTimeLimiter:
+        timeout-duration: 30s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,bulkheads
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Logging
+logging:
+  level:
+    com.extraction: DEBUG
+    org.springframework.amqp: INFO
+    io.github.resilience4j: DEBUG

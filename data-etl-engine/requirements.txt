@@ -1,0 +1,29 @@
+# Python ETL Engine Dependencies
+
+# Kafka
+confluent-kafka>=2.3.0
+
+# MinIO/S3
+minio>=7.2.0
+
+# Database
+psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.25
+
+# PDF Processing
+pymupdf>=1.24.0
+
+# Data Processing
+pandas>=2.1.4
+openpyxl>=3.1.2  # Excel support
+
+# Configuration
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# Logging & Monitoring
+structlog>=24.1.0
+
+# Utilities
+python-magic>=0.4.27

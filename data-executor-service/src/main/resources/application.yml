@@ -56,6 +56,25 @@ spring:
     locations: classpath:db/migration
     baseline-version: 0
 
+# OpenFeign Configuration
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 30000
+        loggerLevel: basic
+  compression:
+    request:
+      enabled: true
+      mime-types: application/json,application/xml
+      min-request-size: 2048
+    response:
+      enabled: true
+      useGzipDecoder: true
+  okhttp:
+    enabled: true
+
   # Kafka Configuration (Producer)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -143,6 +162,7 @@ resilience4j:
         max-attempts: 3
         wait-duration: 500ms
         exponential-backoff-multiplier: 2
+        randomized-wait-factor: 0.5
         retry-exceptions:
           - feign.RetryableException
           - java.net.SocketTimeoutException

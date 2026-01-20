@@ -101,6 +101,12 @@
             <artifactId>feign-okhttp</artifactId>
         </dependency>
 
+        <!-- Feign Micrometer for metrics -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-micrometer</artifactId>
+        </dependency>
+
         <!-- Spring Data JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

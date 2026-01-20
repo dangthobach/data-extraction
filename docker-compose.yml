@@ -122,6 +122,26 @@ services:
   # ==========================================
   # Application Services
   # ==========================================
+  iam-service:
+    build:
+      context: ./iam-service
+      dockerfile: Dockerfile
+    container_name: extraction-iam-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: data_extraction
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - extraction-network
+
   integration-service:
     build:
       context: ./data-integration-service
@@ -129,6 +149,7 @@ services:
     container_name: extraction-integration-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      IAM_SERVICE_URL: http://iam-service:8082
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-admin}

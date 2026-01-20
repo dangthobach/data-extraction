@@ -36,6 +36,7 @@ graph TB
 
     subgraph "Java Layer (Spring Boot 21)"
         IS[Integration Service (Gateway)]
+        IAM[IAM Service (Auth Provider)]
         ES[Executor Service (Ingestion/Orchestration)]
         VS[Validation & Master Service]
     end
@@ -52,8 +53,9 @@ graph TB
         REDIS[(Redis - L2 Cache & Rate Limit)]
     end
 
-    TP -->|HTTPS + API Key| IS
-    IS -->|Auth & Rate Limit| IS
+    TP -->|HTTPS + ClientID/Secret| IS
+    IS -->|Check Cache| REDIS
+    IS -->|Verify Auth (if miss)| IAM
     IS -->|Publish Request| RMQ
     
     RMQ -->|Consume Job| ES
@@ -99,9 +101,19 @@ graph TB
 ### 3.1 Integration Service (Java)
 **Core Responsibility**: Secure Gateway & Traffic Control.
 *   **Defense Layers**:
-    *   **L1**: API Key Authentication (Cached in Caffeine).
+    *   **L1**: Authentication via **IAM Service** (Cached in Redis/Caffeine).
     *   **L2**: Rate Limiting (100 req/day/system) via Redis.
     *   **L3**: Validation (Basic payload check).
+*   **Note**: Does NOT store auth entities. Delegates to IAM.
+
+### 3.2 IAM Service (Java - Spring Boot)
+**Core Responsibility**: Centralized Authentication & Authorization.
+*   **Entities**: `SystemClient` (ClientId, ClientSecret, Scopes).
+*   **Storage**: PostgreSQL (`iam_schema`).
+*   **Communication**: Exposes Internal API for Validation.
+    *   `POST /internal/auth/validate`: Verifies ClientID/Secret.
+
+### 3.3 Executor Service (Java - Spring Boot)
 
 ### 3.2 Executor Service (Java - Spring Boot)
 **Core Responsibility**: High-throughput File Ingestion & Orchestration.

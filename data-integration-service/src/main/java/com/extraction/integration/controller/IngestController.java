@@ -4,7 +4,7 @@ import com.extraction.integration.dto.ApiResponse;
 import com.extraction.integration.dto.IngestRequestMessage;
 import com.extraction.integration.dto.SystemInfo;
 import com.extraction.integration.dto.TriggerJobRequest;
-import com.extraction.integration.service.ApiKeyService;
+import com.extraction.integration.service.IamAuthService;
 import com.extraction.integration.service.MessagePublisherService;
 import com.extraction.integration.service.MinioStorageService;
 import com.extraction.integration.service.RateLimitService;
@@ -33,7 +33,7 @@ public class IngestController {
         private final RateLimitService rateLimitService;
         private final MinioStorageService minioStorageService;
         private final MessagePublisherService messagePublisherService;
-        private final ApiKeyService apiKeyService;
+        private final IamAuthService iamAuthService;
         private final ObjectMapper objectMapper;
 
         /**
@@ -48,11 +48,12 @@ public class IngestController {
         @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         @Bulkhead(name = "uploadBulkhead", fallbackMethod = "uploadBulkheadFallback")
         public ResponseEntity<ApiResponse<Map<String, String>>> uploadFile(
-                        @RequestHeader("X-API-KEY") String apiKey,
+                        @RequestHeader("X-Client-Id") String clientId,
+                        @RequestHeader("X-Client-Secret") String clientSecret,
                         @RequestParam("file") MultipartFile file) {
 
-                // Validate API Key and get system info
-                SystemInfo systemInfo = apiKeyService.validateApiKey(apiKey);
+                // Validate Credentials
+                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
                 String systemId = systemInfo.getSystemId();
 
                 String requestId = UUID.randomUUID().toString();
@@ -61,7 +62,7 @@ public class IngestController {
                                 systemInfo.isCachedL1(), systemInfo.isCachedL2());
 
                 // Rate limit check (uses system-specific limit if configured)
-                if (!rateLimitService.checkAndIncrementRateLimit(systemId)) {
+                if (!rateLimitService.checkAndIncrementRateLimit(systemId, systemInfo.getDailyLimit())) {
                         log.warn("Rate limit exceeded for system: {}", systemId);
                         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                                         .body(ApiResponse.error(
@@ -132,11 +133,12 @@ public class IngestController {
         @PostMapping("/job/trigger")
         @Bulkhead(name = "triggerBulkhead", fallbackMethod = "triggerBulkheadFallback")
         public ResponseEntity<ApiResponse<Map<String, String>>> triggerJob(
-                        @RequestHeader("X-API-KEY") String apiKey,
+                        @RequestHeader("X-Client-Id") String clientId,
+                        @RequestHeader("X-Client-Secret") String clientSecret,
                         @Valid @RequestBody TriggerJobRequest request) {
 
-                // Validate API Key and get system info
-                SystemInfo systemInfo = apiKeyService.validateApiKey(apiKey);
+                // Validate Credentials
+                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
                 String systemId = systemInfo.getSystemId();
 
                 String requestId = UUID.randomUUID().toString();
@@ -145,7 +147,7 @@ public class IngestController {
                                 systemInfo.isCachedL1(), systemInfo.isCachedL2());
 
                 // Rate limit check
-                if (!rateLimitService.checkAndIncrementRateLimit(systemId)) {
+                if (!rateLimitService.checkAndIncrementRateLimit(systemId, systemInfo.getDailyLimit())) {
                         log.warn("Rate limit exceeded for system: {}", systemId);
                         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                                         .body(ApiResponse.error(
@@ -205,15 +207,19 @@ public class IngestController {
         /**
          * Get rate limit status for a system
          */
+        /**
+         * Get rate limit status for a system
+         */
         @GetMapping("/quota")
         public ResponseEntity<ApiResponse<Map<String, Object>>> getQuota(
-                        @RequestHeader("X-API-KEY") String apiKey) {
+                        @RequestHeader("X-Client-Id") String clientId,
+                        @RequestHeader("X-Client-Secret") String clientSecret) {
 
-                SystemInfo systemInfo = apiKeyService.validateApiKey(apiKey);
+                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
                 String systemId = systemInfo.getSystemId();
 
-                int used = rateLimitService.getCurrentUsage(systemId);
-                int remaining = rateLimitService.getRemainingQuota(systemId);
+                int used = rateLimitService.getCurrentUsage(systemId, systemInfo.getDailyLimit());
+                int remaining = rateLimitService.getRemainingQuota(systemId, systemInfo.getDailyLimit());
                 int limit = systemInfo.getDailyLimit() != null ? systemInfo.getDailyLimit() : 100;
 
                 return ResponseEntity.ok(ApiResponse.success(Map.of(
@@ -222,7 +228,7 @@ public class IngestController {
                                 "used", used,
                                 "remaining", remaining,
                                 "limit", limit,
-                                "cacheStats", apiKeyService.getCacheStats())));
+                                "cacheStats", iamAuthService.getCacheStats())));
         }
 
         /**

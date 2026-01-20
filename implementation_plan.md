@@ -22,6 +22,10 @@ Refactor the root directory to separate concerns while keeping them unified for 
 │   ├── rabbitmq/                # Config
 │   ├── kafka/                   # Kafka Config
 │   └── minio/                   # Setup
+├── iam-service/                 # [NEW] [JAVA] Auth Service
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/
 ├── data-integration-service/    # [JAVA] Spring Boot Gateway
 │   ├── Dockerfile
 │   ├── pom.xml
@@ -37,27 +41,21 @@ Refactor the root directory to separate concerns while keeping them unified for 
 ```
 
 ### 2. Infrastructure (Docker & Environment)
-#### [NEW] [docker-compose.yml](file:///c:/Project/data-extraction/docker-compose.yml)
+#### [MODIFY] [docker-compose.yml](file:///c:/Project/data-extraction/docker-compose.yml)
 - **Services**:
-    - `postgres`, `redis`, `minio`
-    - `rabbitmq`: For Integration -> Executor
-    - `kafka` + `zookeeper` (or KRaft): For Executor -> ETL
-    - `integration-service`: Java
-    - `executor-service`: Java
-    - `etl-engine`: Python
-- **Networks**: `extraction-network`.
-
-#### [NEW] [Makefile](file:///c:/Project/data-extraction/Makefile)
-- `make up`: Build and start all services.
-- `make down`: Stop everything.
-- `make logs`: View logs.
-- `make build`: Rebuild images.
+    - `iam-service`: New Java service.
+    - `integration-service`: Update dependencies.
 
 ### 3. Java Services
-#### [NEW] [data-integration-service](file:///c:/Project/data-extraction/data-integration-service/)
+#### [NEW] [iam-service](file:///c:/Project/data-extraction/iam-service/)
 - **Tech**: Java 21, Spring Boot 3.3.x.
-- **Port**: 8080.
-- **Dockerfile**: Multi-stage build (Build with Maven -> Run with JRE).
+- **Function**: Manage `SystemClient` (ID/Secret). Validate credentials.
+- **Port**: 8082.
+
+#### [MODIFY] [data-integration-service](file:///c:/Project/data-extraction/data-integration-service/)
+- **Refactor**: Remove `ApiKey` entity.
+- **New**: `IamClient` (Feign).
+- **Logic**: Call `iam-service` to validate credentials (cache result).
 
 #### [NEW] [data-executor-service](file:///c:/Project/data-extraction/data-executor-service/)
 - **Tech**: Java 21, Spring Boot 3.3.x, Spring Cloud Stream (Kafka).

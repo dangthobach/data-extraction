@@ -37,9 +37,7 @@ public class ResilienceConfig {
     public BulkheadRegistry bulkheadRegistry(BulkheadRegistry registry) {
         registry.getAllBulkheads().forEach(bh -> {
             bh.getEventPublisher()
-                    .onCallRejected(event -> log.warn("Bulkhead {} rejected call", bh.getName()))
-                    .onCallFinished(event -> log.debug("Bulkhead {} call finished, duration: {}ms",
-                            bh.getName(), event.getElapsedDuration().toMillis()));
+                    .onCallRejected(event -> log.warn("Bulkhead {} rejected call", bh.getName()));
         });
         return registry;
     }

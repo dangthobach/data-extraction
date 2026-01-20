@@ -51,6 +51,7 @@ infra-down:
 build-java:
 	cd data-integration-service && ./mvnw clean package -DskipTests
 	cd data-executor-service && ./mvnw clean package -DskipTests
+	cd iam-service && mvn clean package -DskipTests
 
 # Build Python ETL only
 build-python:

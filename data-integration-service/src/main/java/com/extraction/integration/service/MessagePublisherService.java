@@ -1,8 +1,6 @@
 package com.extraction.integration.service;
 
 import com.extraction.integration.dto.IngestRequestMessage;
-import com.extraction.integration.entity.Job;
-import com.extraction.integration.entity.JobType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +20,6 @@ import java.util.concurrent.TimeUnit;
 public class MessagePublisherService {
 
     private final RabbitTemplate rabbitTemplate;
-    private final JobService jobService;
 
     @Value("${messaging.exchange.integration}")
     private String exchangeName;
@@ -32,7 +29,7 @@ public class MessagePublisherService {
 
     /**
      * Publish an ingest request message to RabbitMQ with Circuit Breaker protection
-     * Also creates a Job record for tracking.
+     * Stateless: Only publishes message, does not persist job state locally.
      */
     @CircuitBreaker(name = "rabbitService", fallbackMethod = "publishFallback")
     public String publishIngestRequest(IngestRequestMessage message) {
@@ -48,20 +45,6 @@ public class MessagePublisherService {
                 message.getJobId(), message.getType(), message.getSystemId());
 
         try {
-            // Create Job record for tracking
-            JobType jobType = message.getType() == IngestRequestMessage.RequestType.UPLOAD
-                    ? JobType.UPLOAD
-                    : JobType.SYNC;
-
-            Job job = jobService.createJob(
-                    message.getRequestId(),
-                    message.getSystemId(),
-                    jobType,
-                    message.getSourcePath());
-
-            // Update message with persisted job ID
-            message.setJobId(job.getId().toString());
-
             // Create correlation data for publisher confirms
             CorrelationData correlationData = new CorrelationData(message.getJobId());
 
@@ -78,8 +61,6 @@ public class MessagePublisherService {
             } else {
                 String reason = confirm != null ? confirm.getReason() : "Unknown";
                 log.error("Message not acknowledged: jobId={}, reason={}", message.getJobId(), reason);
-                // Mark job as failed
-                jobService.failJob(job.getId(), "Message not acknowledged by broker: " + reason);
                 throw new RuntimeException("Message not acknowledged by broker: " + reason);
             }
 
@@ -98,8 +79,5 @@ public class MessagePublisherService {
 
         // Option 1: Throw exception to reject the request
         throw new RuntimeException("Service temporarily unavailable. Please retry later.");
-
-        // Option 2: Queue to a local fallback (e.g., Redis, file) - implement if needed
-        // return fallbackQueueService.queue(message);
     }
 }

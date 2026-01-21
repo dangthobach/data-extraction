@@ -91,9 +91,13 @@ minio:
     read: 60s
     write: 120s
 
-# Rate Limiting Configuration
+# Rate Limiting Configuration (Bucket4j + Redisson)
 rate-limit:
-  daily-limit: 100
+  # Default daily limit per client (100K requests/day for 50 clients)
+  daily-limit: 100000
+  # Burst protection limit (max 1000 requests/minute to prevent spikes)
+  burst-limit: 1000
+  # Redis key prefix for rate limit buckets
   key-prefix: "rate_limit:"
 
 # RabbitMQ Exchange/Queue

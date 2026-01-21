@@ -1,10 +1,10 @@
 package com.extraction.integration.service;
 
-import com.bucket4j.Bandwidth;
-import com.bucket4j.Bucket;
-import com.bucket4j.BucketConfiguration;
-import com.bucket4j.ConsumptionProbe;
-import com.bucket4j.distributed.proxy.ProxyManager;
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.BucketConfiguration;
+import io.github.bucket4j.ConsumptionProbe;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
 import com.extraction.integration.dto.RateLimitStats;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

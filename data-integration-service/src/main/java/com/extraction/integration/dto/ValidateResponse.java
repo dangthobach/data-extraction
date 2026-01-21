@@ -15,4 +15,5 @@ public class ValidateResponse {
     private String clientName;
     private String scopes;
     private String message;
+    private Integer dailyLimit; // Custom daily rate limit for this client
 }

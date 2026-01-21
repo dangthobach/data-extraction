@@ -126,21 +126,23 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
-        <!-- Bucket4j (Advanced Rate Limiting) -->
+        <!-- Bucket4j (Advanced Rate Limiting) - JDK 17+ optimized -->
         <dependency>
             <groupId>com.bucket4j</groupId>
-            <artifactId>bucket4j-core</artifactId>
-            <version>8.10.1</version>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>8.14.0</version>
         </dependency>
+        <!-- Bucket4j Redisson integration for JDK 17+ (compatible with JDK 21) -->
         <dependency>
             <groupId>com.bucket4j</groupId>
-            <artifactId>bucket4j-redisson</artifactId>
-            <version>8.10.1</version>
+            <artifactId>bucket4j_jdk17-redisson</artifactId>
+            <version>8.14.0</version>
         </dependency>
+        <!-- Redisson client for distributed rate limiting -->
         <dependency>
             <groupId>org.redisson</groupId>
-            <artifactId>redisson</artifactId>
-            <version>3.27.0</version>
+            <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>3.37.0</version>
         </dependency>
 
         <!-- Lombok -->

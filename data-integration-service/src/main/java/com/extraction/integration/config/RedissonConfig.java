@@ -1,14 +1,24 @@
 package com.extraction.integration.config;
 
-import com.bucket4j.distributed.proxy.ProxyManager;
-import com.bucket4j.redis.redisson.cas.RedissonBasedProxyManager;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
+import io.github.bucket4j.redis.redisson.Bucket4jRedisson;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
+/**
+ * Redisson and Bucket4j Configuration
+ * 
+ * Configures:
+ * - RedissonClient for distributed operations
+ * - ProxyManager for Bucket4j distributed rate limiting
+ * 
+ * Compatible with JDK 17+ (including JDK 21)
+ */
 @Configuration
 public class RedissonConfig {
 
@@ -22,6 +32,7 @@ public class RedissonConfig {
     private String redisPassword;
 
     @Bean(destroyMethod = "shutdown")
+    @Primary
     public RedissonClient redissonClient() {
         Config config = new Config();
 
@@ -42,6 +53,8 @@ public class RedissonConfig {
 
     @Bean
     public ProxyManager<String> rateLimitProxyManager(RedissonClient redissonClient) {
-        return new RedissonBasedProxyManager<>(redissonClient);
+        // Cast to Redisson implementation to access getCommandExecutor()
+        return Bucket4jRedisson.casBasedBuilder(((Redisson) redissonClient).getCommandExecutor())
+                .build();
     }
 }

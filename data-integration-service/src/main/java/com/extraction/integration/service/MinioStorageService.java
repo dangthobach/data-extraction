@@ -39,7 +39,11 @@ public class MinioStorageService {
                 log.info("Created bucket: {}", bucketName);
             }
         } catch (Exception e) {
-            log.error("Failed to create bucket: {}", bucketName, e);
+            // Log warning but allow application to start. MinIO might be down or not
+            // reachable yet.
+            log.warn(
+                    "Could not initialize bucket '{}' at startup (Non-fatal). Storage features may be unavailable. Error: {}",
+                    bucketName, e.getMessage());
         }
     }
 

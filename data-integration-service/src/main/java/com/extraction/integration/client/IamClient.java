@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient(name = "iam-service", url = "${iam.service.url:http://localhost:8082}", fallback = IamClientFallback.class)
 public interface IamClient {
 
-    @PostMapping("/internal/auth/validate")
+    @PostMapping("/internal/auth/introspect")
     ValidateResponse validate(@RequestBody ValidateRequest request);
 }

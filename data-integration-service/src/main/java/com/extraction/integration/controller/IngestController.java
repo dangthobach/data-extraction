@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.security.core.context.SecurityContextHolder;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1")
@@ -41,6 +43,7 @@ public class IngestController {
          * Flow: Upload to MinIO -> Publish message to RabbitMQ
          * 
          * Protected by:
+         * - IAM (JWT Token via Authorization header)
          * - Rate Limiting (100/day per system)
          * - Bulkhead (max 30 concurrent uploads)
          * - Circuit Breaker (on MinIO and RabbitMQ services)
@@ -48,12 +51,11 @@ public class IngestController {
         @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         @Bulkhead(name = "uploadBulkhead", fallbackMethod = "uploadBulkheadFallback")
         public ResponseEntity<ApiResponse<Map<String, String>>> uploadFile(
-                        @RequestHeader("X-Client-Id") String clientId,
-                        @RequestHeader("X-Client-Secret") String clientSecret,
                         @RequestParam("file") MultipartFile file) {
 
-                // Validate Credentials
-                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
+                // Retrieve SystemInfo from Security Context (set by JwtAuthenticationFilter)
+                SystemInfo systemInfo = (SystemInfo) SecurityContextHolder.getContext().getAuthentication()
+                                .getPrincipal();
                 String systemId = systemInfo.getSystemId();
 
                 String requestId = UUID.randomUUID().toString();
@@ -113,7 +115,7 @@ public class IngestController {
          * Bulkhead fallback when max concurrent uploads reached
          */
         public ResponseEntity<ApiResponse<Map<String, String>>> uploadBulkheadFallback(
-                        String apiKey, MultipartFile file, Throwable throwable) {
+                        MultipartFile file, Throwable throwable) {
                 log.warn("Upload bulkhead full, rejecting request for file: {}",
                                 file.getOriginalFilename());
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -126,6 +128,7 @@ public class IngestController {
          * Trigger a job to pull files from external source (SFTP/S3)
          * 
          * Protected by:
+         * - IAM (JWT Token via Authorization header)
          * - Rate Limiting (100/day per system)
          * - Bulkhead (max 50 concurrent triggers)
          * - Circuit Breaker (on RabbitMQ service)
@@ -133,12 +136,11 @@ public class IngestController {
         @PostMapping("/job/trigger")
         @Bulkhead(name = "triggerBulkhead", fallbackMethod = "triggerBulkheadFallback")
         public ResponseEntity<ApiResponse<Map<String, String>>> triggerJob(
-                        @RequestHeader("X-Client-Id") String clientId,
-                        @RequestHeader("X-Client-Secret") String clientSecret,
                         @Valid @RequestBody TriggerJobRequest request) {
 
-                // Validate Credentials
-                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
+                // Retrieve SystemInfo from Security Context
+                SystemInfo systemInfo = (SystemInfo) SecurityContextHolder.getContext().getAuthentication()
+                                .getPrincipal();
                 String systemId = systemInfo.getSystemId();
 
                 String requestId = UUID.randomUUID().toString();
@@ -196,7 +198,7 @@ public class IngestController {
          * Bulkhead fallback when max concurrent triggers reached
          */
         public ResponseEntity<ApiResponse<Map<String, String>>> triggerBulkheadFallback(
-                        String apiKey, TriggerJobRequest request, Throwable throwable) {
+                        TriggerJobRequest request, Throwable throwable) {
                 log.warn("Trigger bulkhead full, rejecting request");
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                                 .body(ApiResponse.error(
@@ -207,15 +209,11 @@ public class IngestController {
         /**
          * Get rate limit status for a system
          */
-        /**
-         * Get rate limit status for a system
-         */
         @GetMapping("/quota")
-        public ResponseEntity<ApiResponse<Map<String, Object>>> getQuota(
-                        @RequestHeader("X-Client-Id") String clientId,
-                        @RequestHeader("X-Client-Secret") String clientSecret) {
+        public ResponseEntity<ApiResponse<Map<String, Object>>> getQuota() {
 
-                SystemInfo systemInfo = iamAuthService.validate(clientId, clientSecret);
+                SystemInfo systemInfo = (SystemInfo) SecurityContextHolder.getContext().getAuthentication()
+                                .getPrincipal();
                 String systemId = systemInfo.getSystemId();
 
                 int used = rateLimitService.getCurrentUsage(systemId, systemInfo.getDailyLimit());

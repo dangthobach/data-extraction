@@ -46,12 +46,13 @@ public class IamAuthService {
                 .build();
     }
 
-    public SystemInfo validate(String clientId, String clientSecret) {
-        if (clientId == null || clientSecret == null) {
-            throw new UnauthorizedException("Client ID and Secret are required");
+    public SystemInfo validate(String token) {
+        if (token == null || token.isBlank()) {
+            throw new UnauthorizedException("Token is required");
         }
 
-        String cacheKey = hashCredentials(clientId, clientSecret);
+        // Hash token to use as cache key (shorter than full token)
+        String cacheKey = hashToken(token);
 
         // L1 Cache
         SystemInfo cached = l1Cache.getIfPresent(cacheKey);
@@ -73,12 +74,11 @@ public class IamAuthService {
         // Call IAM Service
         try {
             ValidateResponse response = iamClient.validate(ValidateRequest.builder()
-                    .clientId(clientId)
-                    .clientSecret(clientSecret)
+                    .token(token)
                     .build());
 
             if (!response.isValid()) {
-                throw new UnauthorizedException("Invalid credentials: " + response.getMessage());
+                throw new UnauthorizedException("Invalid token: " + response.getMessage());
             }
 
             SystemInfo info = SystemInfo.builder()
@@ -125,11 +125,10 @@ public class IamAuthService {
         }
     }
 
-    private String hashCredentials(String id, String secret) {
+    private String hashToken(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            String raw = id + ":" + secret;
-            byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);

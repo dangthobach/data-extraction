@@ -1,6 +1,7 @@
 package com.extraction.executor.listener;
 
-import com.extraction.executor.client.EtlClient;
+import com.extraction.executor.client.DocumentProcessingClient;
+import com.extraction.executor.dto.document.*;
 import com.extraction.executor.dto.CheckCompletenessRequest;
 import com.extraction.executor.dto.CrossCheckRequest;
 import com.extraction.executor.dto.ExtractDataRequest;
@@ -38,7 +39,7 @@ public class IngestRequestListener {
 
     private final MinioStorageService minioStorageService;
     private final SftpService sftpService;
-    private final EtlClient etlClient;
+    private final DocumentProcessingClient documentProcessingClient;
     private final DocumentProcessingHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
@@ -232,34 +233,38 @@ public class IngestRequestListener {
         long startTime = System.currentTimeMillis();
         ProcessingStage stage = ProcessingStage.SPLIT_RENAME;
         String transactionId = null;
-        Map<String, Object> result = null;
+        SplitRenameResponse response = null;
         Map<String, Object> requestPayload = null;
+        Map<String, Object> result = null;
         String errorMsg = null;
         String errorStackTrace = null;
 
         try {
             log.info("Starting SPLIT_RENAME: jobId={}, s3Uri={}, fileName={}", jobId, s3Uri, fileName);
             
-            // Prepare request
-            SplitRenameRequest request = new SplitRenameRequest();
-            request.setS3_uri(s3Uri);
+            // Prepare DTO request
+            com.extraction.executor.dto.document.SplitRenameRequest dtoRequest = 
+                    com.extraction.executor.dto.document.SplitRenameRequest.builder()
+                    .s3Uri(s3Uri)
+                    .build();
             
             requestPayload = new HashMap<>();
             requestPayload.put("s3_uri", s3Uri);
             
             log.debug("SPLIT_RENAME request: {}", objectMapper.writeValueAsString(requestPayload));
             
-            // Call ETL API
-            result = etlClient.splitRename(requestPayload);
+            // Call ETL API using type-safe client
+            response = documentProcessingClient.splitAndRename(dtoRequest);
             
             // Extract transaction_id from response
-            if (result != null && result.containsKey("transaction_id")) {
-                transactionId = (String) result.get("transaction_id");
+            if (response != null && response.getTransactionId() != null) {
+                transactionId = response.getTransactionId();
+                result = objectMapper.convertValue(response, Map.class);
                 log.info("SPLIT_RENAME successful: jobId={}, transactionId={}, duration={}ms", 
                         jobId, transactionId, System.currentTimeMillis() - startTime);
             } else {
                 errorMsg = "Response does not contain transaction_id";
-                log.error("SPLIT_RENAME failed - no transaction_id: jobId={}, response={}", jobId, result);
+                log.error("SPLIT_RENAME failed - no transaction_id: jobId={}, response={}", jobId, response);
             }
             
         } catch (Exception e) {
@@ -284,6 +289,7 @@ public class IngestRequestListener {
     private boolean processCheckCompleteness(String jobId, String transactionId) {
         long startTime = System.currentTimeMillis();
         ProcessingStage stage = ProcessingStage.CHECK_COMPLETENESS;
+        CheckCompletenessResponse response = null;
         Map<String, Object> result = null;
         Map<String, Object> requestPayload = null;
         String errorMsg = null;
@@ -293,17 +299,20 @@ public class IngestRequestListener {
         try {
             log.info("Starting CHECK_COMPLETENESS: jobId={}, transactionId={}", jobId, transactionId);
             
-            // Prepare request
-            CheckCompletenessRequest request = new CheckCompletenessRequest();
-            request.setTransaction_id(transactionId);
+            // Prepare DTO request
+            com.extraction.executor.dto.document.CheckCompletenessRequest dtoRequest = 
+                    com.extraction.executor.dto.document.CheckCompletenessRequest.builder()
+                    .transactionId(transactionId)
+                    .build();
             
             requestPayload = new HashMap<>();
             requestPayload.put("transaction_id", transactionId);
             
             log.debug("CHECK_COMPLETENESS request: {}", objectMapper.writeValueAsString(requestPayload));
             
-            // Call ETL API
-            result = etlClient.checkCompleteness(requestPayload);
+            // Call ETL API using type-safe client
+            response = documentProcessingClient.checkCompleteness(dtoRequest);
+            result = objectMapper.convertValue(response, Map.class);
             
             success = true;
             log.info("CHECK_COMPLETENESS successful: jobId={}, transactionId={}, duration={}ms", 
@@ -331,6 +340,7 @@ public class IngestRequestListener {
     private boolean processExtractData(String jobId, String transactionId) {
         long startTime = System.currentTimeMillis();
         ProcessingStage stage = ProcessingStage.EXTRACT_DATA;
+        ExtractDataResponse response = null;
         Map<String, Object> result = null;
         Map<String, Object> requestPayload = null;
         String errorMsg = null;
@@ -340,17 +350,20 @@ public class IngestRequestListener {
         try {
             log.info("Starting EXTRACT_DATA: jobId={}, transactionId={}", jobId, transactionId);
             
-            // Prepare request
-            ExtractDataRequest request = new ExtractDataRequest();
-            request.setTransaction_id(transactionId);
+            // Prepare DTO request
+            com.extraction.executor.dto.document.ExtractDataRequest dtoRequest = 
+                    com.extraction.executor.dto.document.ExtractDataRequest.builder()
+                    .transactionId(transactionId)
+                    .build();
             
             requestPayload = new HashMap<>();
             requestPayload.put("transaction_id", transactionId);
             
             log.debug("EXTRACT_DATA request: {}", objectMapper.writeValueAsString(requestPayload));
             
-            // Call ETL API
-            result = etlClient.extractData(requestPayload);
+            // Call ETL API using type-safe client
+            response = documentProcessingClient.extractData(dtoRequest);
+            result = objectMapper.convertValue(response, Map.class);
             
             success = true;
             log.info("EXTRACT_DATA successful: jobId={}, transactionId={}, duration={}ms", 
@@ -378,6 +391,7 @@ public class IngestRequestListener {
     private boolean processCrossCheck(String jobId, String transactionId) {
         long startTime = System.currentTimeMillis();
         ProcessingStage stage = ProcessingStage.CROSS_CHECK;
+        CrossCheckResponse response = null;
         Map<String, Object> result = null;
         Map<String, Object> requestPayload = null;
         String errorMsg = null;
@@ -387,17 +401,20 @@ public class IngestRequestListener {
         try {
             log.info("Starting CROSS_CHECK: jobId={}, transactionId={}", jobId, transactionId);
             
-            // Prepare request
-            CrossCheckRequest request = new CrossCheckRequest();
-            request.setTransaction_id(transactionId);
+            // Prepare DTO request
+            com.extraction.executor.dto.document.CrossCheckRequest dtoRequest = 
+                    com.extraction.executor.dto.document.CrossCheckRequest.builder()
+                    .transactionId(transactionId)
+                    .build();
             
             requestPayload = new HashMap<>();
             requestPayload.put("transaction_id", transactionId);
             
             log.debug("CROSS_CHECK request: {}", objectMapper.writeValueAsString(requestPayload));
             
-            // Call ETL API
-            result = etlClient.crossCheck(requestPayload);
+            // Call ETL API using type-safe client
+            response = documentProcessingClient.crossCheck(dtoRequest);
+            result = objectMapper.convertValue(response, Map.class);
             
             success = true;
             log.info("CROSS_CHECK successful: jobId={}, transactionId={}, duration={}ms", 

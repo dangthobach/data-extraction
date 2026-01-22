@@ -9,15 +9,24 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /**
- * OpenFeign client for Document Processing API
+ * OpenFeign client for ETL Engine / Document Processing API
  * 
- * Supports flexible URL configuration via ${document-processing.api.base-url}
+ * Unified client for all document processing operations:
+ * - Type-safe DTO objects for compile-time validation
+ * - Full Resilience4j integration (CircuitBreaker + Retry)
+ * - Comprehensive fallback handling
+ * 
+ * Supports flexible URL configuration via ${etl-engine.url}
  * which can be:
- * - Service name for service discovery: "http://document-processing-service"
  * - Direct URL: "http://localhost:8089"
- * - DNS name: "http://doc-processing.example.com"
+ * - Service name for service discovery: "http://etl-engine-service"
+ * - DNS name: "http://etl-engine.example.com"
  */
-@FeignClient(name = "document-processing-client", url = "${document-processing.api.base-url}", configuration = FeignClientConfig.class)
+@FeignClient(
+    name = "etl-engine-client",
+    url = "${etl-engine.url:http://localhost:8089}",
+    configuration = FeignClientConfig.class
+)
 public interface DocumentProcessingClient {
 
     /**
@@ -62,7 +71,21 @@ public interface DocumentProcessingClient {
     @Retry(name = "documentProcessing")
     ExtractDataResponse extractData(@RequestBody ExtractDataRequest request);
 
-    // Fallback methods for circuit breaker
+    /**
+     * Stage 4: Cross Check Consistency
+     * 
+     * Performs cross-validation to ensure data consistency across
+     * all extracted documents.
+     * 
+     * @param request Contains transaction ID from previous stage
+     * @return Response with cross-check results and consistency status
+     */
+    @PostMapping("/api/v1/documents/cross-check")
+    @CircuitBreaker(name = "documentProcessing", fallbackMethod = "crossCheckFallback")
+    @Retry(name = "documentProcessing")
+    CrossCheckResponse crossCheck(@RequestBody CrossCheckRequest request);
+
+    // ===== Fallback methods for circuit breaker =====
 
     /**
      * Fallback method for splitAndRename when circuit is open or service fails
@@ -84,7 +107,15 @@ public interface DocumentProcessingClient {
      * Fallback method for extractData when circuit is open or service fails
      */
     default ExtractDataResponse extractDataFallback(ExtractDataRequest request, Exception ex) {
-        throw new RuntimeException("Document Processing API is currently unavailable for data extraction. " +
+        throw new RuntimeException("ETL Engine is currently unavailable for data extraction. " +
+                "Please try again later. Error: " + ex.getMessage(), ex);
+    }
+
+    /**
+     * Fallback method for crossCheck when circuit is open or service fails
+     */
+    default CrossCheckResponse crossCheckFallback(CrossCheckRequest request, Exception ex) {
+        throw new RuntimeException("ETL Engine is currently unavailable for cross-check operation. " +
                 "Please try again later. Error: " + ex.getMessage(), ex);
     }
 }

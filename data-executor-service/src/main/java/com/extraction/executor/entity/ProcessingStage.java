@@ -17,5 +17,10 @@ public enum ProcessingStage {
     /**
      * Stage 3: Extract structured data
      */
-    EXTRACT_DATA
+    EXTRACT_DATA,
+
+    /**
+     * Stage 4: Cross check consistency
+     */
+    CROSS_CHECK
 }

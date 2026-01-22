@@ -86,4 +86,13 @@ public interface DocumentProcessingHistoryRepository extends JpaRepository<Docum
      * @return List of history records
      */
     List<DocumentProcessingHistory> findByCreatedAtBefore(LocalDateTime cutoffDate);
+
+    /**
+     * Find all history records for a specific transaction ID
+     * Ordered by creation time (newest first)
+     *
+     * @param transactionId Transaction ID to search for
+     * @return List of history records
+     */
+    List<DocumentProcessingHistory> findByTransactionIdOrderByCreatedAtDesc(String transactionId);
 }

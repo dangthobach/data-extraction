@@ -33,4 +33,11 @@ public class RabbitMQConfig {
         template.setMessageConverter(jsonMessageConverter);
         return template;
     }
+
+    // --- Document Processing Queues ---
+    public static final String QUEUE_SPLIT = "split.queue";
+    public static final String QUEUE_CHECK = "check.queue";
+    public static final String QUEUE_EXTRACT = "extract.queue";
+    public static final String QUEUE_CROSSCHECK = "crosscheck.queue";
+    public static final String QUEUE_HISTORY_REQUEST = "history.request.queue";
 }

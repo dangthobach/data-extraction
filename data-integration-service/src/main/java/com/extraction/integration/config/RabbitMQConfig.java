@@ -115,4 +115,94 @@ public class RabbitMQConfig {
 
         return template;
     }
+
+    // --- Document Processing Configuration ---
+
+    public static final String PROCESSING_EXCHANGE = "processing.exchange";
+    public static final String HISTORY_EXCHANGE = "history.exchange";
+
+    public static final String ROUTING_KEY_SPLIT = "document.split";
+    public static final String ROUTING_KEY_CHECK = "document.check";
+    public static final String ROUTING_KEY_EXTRACT = "document.extract";
+    public static final String ROUTING_KEY_CROSSCHECK = "document.crosscheck";
+    public static final String ROUTING_KEY_HISTORY_REQUEST = "history.request";
+
+    public static final String QUEUE_HISTORY_REPLY = "history.reply.queue";
+
+    @Bean
+    public DirectExchange processingExchange() {
+        return new DirectExchange(PROCESSING_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public DirectExchange historyExchange() {
+        return new DirectExchange(HISTORY_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue splitQueue() {
+        return QueueBuilder.durable("split.queue")
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Queue checkQueue() {
+        return QueueBuilder.durable("check.queue")
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Queue extractQueue() {
+        return QueueBuilder.durable("extract.queue")
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Queue crossCheckQueue() {
+        return QueueBuilder.durable("crosscheck.queue")
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Queue historyRequestQueue() {
+        return QueueBuilder.durable("history.request.queue")
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Queue historyReplyQueue() {
+        return QueueBuilder.durable(QUEUE_HISTORY_REPLY)
+                .withArgument("x-queue-type", "quorum")
+                .build();
+    }
+
+    @Bean
+    public Binding bindSplit(Queue splitQueue, DirectExchange processingExchange) {
+        return BindingBuilder.bind(splitQueue).to(processingExchange).with(ROUTING_KEY_SPLIT);
+    }
+
+    @Bean
+    public Binding bindCheck(Queue checkQueue, DirectExchange processingExchange) {
+        return BindingBuilder.bind(checkQueue).to(processingExchange).with(ROUTING_KEY_CHECK);
+    }
+
+    @Bean
+    public Binding bindExtract(Queue extractQueue, DirectExchange processingExchange) {
+        return BindingBuilder.bind(extractQueue).to(processingExchange).with(ROUTING_KEY_EXTRACT);
+    }
+
+    @Bean
+    public Binding bindCrossCheck(Queue crossCheckQueue, DirectExchange processingExchange) {
+        return BindingBuilder.bind(crossCheckQueue).to(processingExchange).with(ROUTING_KEY_CROSSCHECK);
+    }
+
+    @Bean
+    public Binding bindHistoryRequest(Queue historyRequestQueue, DirectExchange historyExchange) {
+        return BindingBuilder.bind(historyRequestQueue).to(historyExchange).with(ROUTING_KEY_HISTORY_REQUEST);
+    }
 }

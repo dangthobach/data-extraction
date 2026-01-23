@@ -5,13 +5,21 @@ import com.extraction.integration.dto.CheckCompletenessRequest;
 import com.extraction.integration.dto.CrossCheckRequest;
 import com.extraction.integration.dto.ExtractDataRequest;
 import com.extraction.integration.dto.SplitRenameRequest;
+import com.extraction.integration.service.MinioStorageService;
+import com.extraction.integration.dto.SystemInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -20,19 +28,67 @@ import java.util.UUID;
 public class DocumentController {
 
     private final RabbitTemplate rabbitTemplate;
+    private final MinioStorageService minioStorageService;
 
-    @PostMapping("/split-rename")
-    public ResponseEntity<?> splitRename(@RequestBody SplitRenameRequest request) {
-        log.info("Received Split & Rename request for S3 URI: {}", request.getS3_uri());
-        // Auto-generate transaction ID if not present (logic specific to POC flow)
-        // Here we expect the executor to maybe assign it or we assign it.
-        // Example response has transaction_id.
-        // We act as RPC client.
-        Object response = rabbitTemplate.convertSendAndReceive(
-                RabbitMQConfig.PROCESSING_EXCHANGE,
-                RabbitMQConfig.ROUTING_KEY_SPLIT,
-                request);
-        return ResponseEntity.ok(response);
+    /**
+     * Split & Rename documents from uploaded file(s).
+     *
+     * Flow per file:
+     * - Upload file to MinIO temp bucket
+     * - Convert MinIO path to s3_uri format
+     * - Send SplitRenameRequest to processing exchange
+     */
+    @PostMapping(value = "/split-rename", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> splitRename(@RequestParam("file") MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body("No file provided");
+        }
+
+        // Lấy SystemInfo từ SecurityContext (tương tự IngestController)
+        SystemInfo systemInfo = (SystemInfo) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String systemId = systemInfo.getSystemId();
+
+        List<Map<String, Object>> results = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            Map<String, Object> fileResult = new HashMap<>();
+            fileResult.put("fileName", file.getOriginalFilename());
+            try {
+                // Upload từng file lên MinIO (temp bucket)
+                String minioPath = minioStorageService.uploadToTemp(file, systemId);
+                String s3Uri = convertToS3Uri(minioPath);
+                fileResult.put("s3_uri", s3Uri);
+
+                // Gửi message vào hàng đợi Split & Rename
+                SplitRenameRequest request = new SplitRenameRequest();
+                request.setS3_uri(s3Uri);
+
+                Object response = rabbitTemplate.convertSendAndReceive(
+                        RabbitMQConfig.PROCESSING_EXCHANGE,
+                        RabbitMQConfig.ROUTING_KEY_SPLIT,
+                        request);
+
+                fileResult.put("queueResponse", response);
+                results.add(fileResult);
+            } catch (RuntimeException ex) {
+                log.error("Service error during split-rename for file {}: {}", file.getOriginalFilename(), ex.getMessage(), ex);
+                fileResult.put("error", ex.getMessage());
+                results.add(fileResult);
+            } catch (Exception ex) {
+                log.error("Failed to process split-rename for file {}: {}", file.getOriginalFilename(), ex.getMessage(), ex);
+                fileResult.put("error", "Failed to process file: " + ex.getMessage());
+                results.add(fileResult);
+            }
+        }
+
+        return ResponseEntity.ok(results);
+    }
+
+    private String convertToS3Uri(String minioPath) {
+        if (minioPath == null || minioPath.isEmpty()) {
+            throw new IllegalArgumentException("minioPath cannot be null or empty");
+        }
+        return "s3://" + minioPath;
     }
 
     @PostMapping("/check-completeness")
